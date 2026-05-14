@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>your-animation-worker — a voice-to-video Claude worker, ICM-structured, fork-ready</title>
+  <meta name="description" content="An open-source voice-to-video worker built on Remotion. Script in, MP4 out. Brief-driven, footage-configurable, dispatch-ready. MIT licensed. Fork it and put it to work.">
+
+  <meta property="og:title" content="your-animation-worker">
+  <meta property="og:description" content="A voice-to-video Claude worker, ICM-structured, fork-ready.">
+  <meta property="og:type" content="website">
+  <!-- TODO: og-image.png delivered by design worker in follow-up dispatch -->
+  <meta property="og:image" content="og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="your-animation-worker">
+  <meta name="twitter:description" content="A voice-to-video Claude worker, ICM-structured, fork-ready.">
+
+  <style>
+    :root {
+      --film-black: #0a0a0c;
+      --bay: #15161a;
+      --bay-2: #1c1d21;
+      --bay-3: #25262b;
+      --rule: #2e2f34;
+      --ivory: #ecebe6;
+      --ivory-2: #c9c8c2;
+      --mute: #7a7b80;
+      --mute-2: #5a5b60;
+      --amber: #d6913a;
+      --amber-soft: #b87a2a;
+      --amber-glow: rgba(214, 145, 58, 0.12);
+      --green-cue: #6aa674;
+      --max: 940px;
+      --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --bar: 56px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--ivory);
+      background: var(--film-black);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
+    }
+
+    a {
+      color: var(--amber);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(214, 145, 58, 0.35);
+      padding-bottom: 1px;
+      transition: border-color 0.12s ease;
+    }
+
+    a:hover {
+      border-bottom-color: var(--amber);
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.86em;
+      background: var(--bay-2);
+      color: var(--ivory);
+      padding: 0.15em 0.45em;
+      border-radius: 2px;
+      border: 1px solid var(--rule);
+    }
+
+    /* Letterbox bars — top and bottom of viewport */
+    .letterbox-top, .letterbox-bottom {
+      position: fixed;
+      left: 0;
+      right: 0;
+      height: var(--bar);
+      background: var(--film-black);
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .letterbox-top { top: 0; border-bottom: 1px solid var(--rule); }
+    .letterbox-bottom { bottom: 0; border-top: 1px solid var(--rule); }
+
+    .letterbox-top::before, .letterbox-bottom::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--amber);
+      opacity: 0.35;
+    }
+
+    .letterbox-top::before { bottom: -1px; }
+    .letterbox-bottom::before { top: -1px; }
+
+    /* Timecode strips inside the letterbox bars */
+    .timecode-strip {
+      position: fixed;
+      left: 0;
+      right: 0;
+      height: var(--bar);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: var(--mute);
+      z-index: 51;
+      pointer-events: auto;
+    }
+
+    .timecode-strip.top { top: 0; }
+    .timecode-strip.bottom { bottom: 0; }
+
+    .timecode-strip .reel {
+      color: var(--amber);
+    }
+
+    .timecode-strip .dot-rec {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      margin-right: 0.5rem;
+      vertical-align: middle;
+      box-shadow: 0 0 6px var(--amber-glow);
+    }
+
+    .timecode-strip nav.console-nav {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .timecode-strip nav.console-nav a {
+      color: var(--ivory-2);
+      border-bottom: none;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .timecode-strip nav.console-nav a:hover {
+      color: var(--amber);
+    }
+
+    .timecode-strip nav.console-nav a.github {
+      color: var(--amber);
+      border: 1px solid var(--amber-soft);
+      padding: 0.2rem 0.6rem;
+    }
+
+    .timecode-strip nav.console-nav a.github:hover {
+      background: var(--amber);
+      color: var(--film-black);
+    }
+
+    /* Hide letterbox nav on small screens, replace with a simpler top */
+    @media (max-width: 720px) {
+      .timecode-strip { padding: 0 0.75rem; font-size: 0.62rem; }
+      .timecode-strip nav.console-nav { gap: 0.85rem; }
+      .timecode-strip nav.console-nav a:not(.github) { display: none; }
+      .timecode-strip .reel-label { display: none; }
+    }
+
+    /* Main content offset by letterbox bars */
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: calc(var(--bar) + 2rem) 1.5rem var(--bar);
+    }
+
+    /* Frame brackets — wrap key sections in [ ] corner brackets */
+    .bracketed {
+      position: relative;
+      padding: 1.75rem;
+    }
+
+    .bracketed::before, .bracketed::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-color: var(--amber);
+      border-style: solid;
+      border-width: 0;
+    }
+
+    .bracketed::before {
+      top: 0; left: 0;
+      border-top-width: 1px;
+      border-left-width: 1px;
+    }
+
+    .bracketed::after {
+      bottom: 0; right: 0;
+      border-bottom-width: 1px;
+      border-right-width: 1px;
+    }
+
+    .bracketed .corner-tr,
+    .bracketed .corner-bl {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-color: var(--amber);
+      border-style: solid;
+      border-width: 0;
+    }
+
+    .bracketed .corner-tr {
+      top: 0; right: 0;
+      border-top-width: 1px;
+      border-right-width: 1px;
+    }
+
+    .bracketed .corner-bl {
+      bottom: 0; left: 0;
+      border-bottom-width: 1px;
+      border-left-width: 1px;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 3rem 0 2rem;
+    }
+
+    .hero .slate {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      color: var(--amber);
+      text-transform: uppercase;
+      margin: 0 0 1.5rem;
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .hero .slate .field {
+      color: var(--mute);
+    }
+
+    .hero .slate .field span {
+      color: var(--ivory-2);
+      margin-left: 0.4rem;
+    }
+
+    .hero h1 {
+      font-family: var(--sans);
+      font-size: clamp(2rem, 4.4vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.08;
+      margin: 0 0 1.5rem;
+      color: var(--ivory);
+    }
+
+    .hero h1 .amber { color: var(--amber); }
+
+    .hero p.standfirst {
+      font-size: 1.15rem;
+      line-height: 1.55;
+      color: var(--ivory-2);
+      margin: 0 0 2.25rem;
+      max-width: 42rem;
+    }
+
+    .hero .cta-row {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .hero .cta-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--amber);
+      color: var(--film-black);
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.85rem 1.4rem;
+      border: 1px solid var(--amber);
+      border-bottom: 1px solid var(--amber);
+      transition: background 0.12s ease;
+    }
+
+    .hero .cta-primary:hover {
+      background: var(--ivory);
+      border-color: var(--ivory);
+    }
+
+    .hero .cta-secondary {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--ivory-2);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--mute-2);
+      padding-bottom: 2px;
+    }
+
+    .hero .cta-secondary:hover {
+      color: var(--amber);
+      border-bottom-color: var(--amber);
+    }
+
+    /* Section base */
+    section {
+      padding: 3.5rem 0;
+      border-top: 1px dashed var(--rule);
+    }
+
+    section .marker {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      color: var(--amber);
+      text-transform: uppercase;
+      margin: 0 0 0.85rem;
+      display: flex;
+      gap: 0.85rem;
+      align-items: center;
+    }
+
+    section .marker .num {
+      color: var(--mute);
+    }
+
+    section .marker .bar-icon {
+      display: inline-block;
+      width: 18px;
+      height: 1px;
+      background: var(--amber);
+    }
+
+    section h2 {
+      font-family: var(--sans);
+      font-size: 1.75rem;
+      line-height: 1.18;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      margin: 0 0 1.25rem;
+      color: var(--ivory);
+    }
+
+    section p { margin: 0 0 1.15rem; color: var(--ivory-2); line-height: 1.65; }
+    section p.lead { font-size: 1.1rem; color: var(--ivory); margin-bottom: 1.75rem; }
+
+    /* Three-pane benefit row */
+    .panes {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin: 2rem 0 0;
+    }
+
+    @media (min-width: 720px) {
+      .panes {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+    }
+
+    .pane {
+      position: relative;
+      padding: 1.5rem 1.5rem 1.5rem 1.75rem;
+      background: var(--bay);
+      border: 1px solid var(--rule);
+    }
+
+    .pane::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 2px;
+      background: var(--amber);
+    }
+
+    .pane .pane-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      color: var(--mute);
+      text-transform: uppercase;
+      margin: 0 0 0.5rem;
+    }
+
+    .pane h3 {
+      font-family: var(--sans);
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0 0 0.55rem;
+      color: var(--ivory);
+    }
+
+    .pane p {
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--ivory-2);
+      margin: 0;
+    }
+
+    /* Video frame for the worked example */
+    .video-frame {
+      position: relative;
+      margin: 2rem auto 0;
+      max-width: 320px;
+      aspect-ratio: 9 / 16;
+      background: linear-gradient(180deg, var(--bay-2) 0%, var(--bay) 100%);
+      border: 1px solid var(--rule);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .video-frame .placeholder {
+      text-align: center;
+      padding: 2rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      color: var(--mute);
+      line-height: 1.6;
+    }
+
+    .video-frame .placeholder .pulse {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--amber);
+      margin-right: 0.5rem;
+      vertical-align: middle;
+      box-shadow: 0 0 8px var(--amber-glow);
+    }
+
+    .video-frame .placeholder strong {
+      color: var(--ivory);
+      font-weight: 600;
+    }
+
+    .video-frame .corner-tl,
+    .video-frame .corner-tr,
+    .video-frame .corner-bl,
+    .video-frame .corner-br {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: var(--amber);
+      border-style: solid;
+      border-width: 0;
+      z-index: 2;
+    }
+
+    .video-frame .corner-tl { top: 6px; left: 6px; border-top-width: 1px; border-left-width: 1px; }
+    .video-frame .corner-tr { top: 6px; right: 6px; border-top-width: 1px; border-right-width: 1px; }
+    .video-frame .corner-bl { bottom: 6px; left: 6px; border-bottom-width: 1px; border-left-width: 1px; }
+    .video-frame .corner-br { bottom: 6px; right: 6px; border-bottom-width: 1px; border-right-width: 1px; }
+
+    .video-frame-meta {
+      max-width: 320px;
+      margin: 0.85rem auto 0;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      color: var(--mute);
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .video-frame-meta .amber { color: var(--amber); }
+
+    /* Code inset — film-bay terminal */
+    .code-inset {
+      background: var(--bay);
+      color: var(--ivory);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+      padding: 1.5rem 1.75rem;
+      margin: 2rem 0 0;
+      overflow-x: auto;
+      border: 1px solid var(--rule);
+      border-left: 2px solid var(--amber);
+      position: relative;
+    }
+
+    .code-inset .label {
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.7rem;
+      display: block;
+      margin-bottom: 0.85rem;
+    }
+
+    .code-inset .comment { color: var(--mute); }
+    .code-inset .prompt { color: var(--amber); }
+    .code-inset .key { color: var(--ivory); }
+
+    /* Differentiators list */
+    ol.differentiators {
+      list-style: none;
+      padding: 0;
+      margin: 2rem 0 0;
+    }
+
+    ol.differentiators li {
+      padding: 1.5rem 0 1.5rem 4.5rem;
+      border-bottom: 1px dashed var(--rule);
+      position: relative;
+    }
+
+    ol.differentiators li:first-child { border-top: 1px dashed var(--rule); }
+
+    ol.differentiators li::before {
+      content: "TRACK " counter(diff, decimal-leading-zero);
+      counter-increment: diff;
+      position: absolute;
+      left: 0;
+      top: 1.6rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--amber);
+    }
+
+    ol.differentiators { counter-reset: diff; }
+
+    ol.differentiators li h3 {
+      font-family: var(--sans);
+      font-size: 1.08rem;
+      font-weight: 700;
+      margin: 0 0 0.45rem;
+      color: var(--ivory);
+    }
+
+    ol.differentiators li p {
+      font-size: 0.94rem;
+      line-height: 1.6;
+      color: var(--ivory-2);
+      margin: 0;
+    }
+
+    /* Setup steps */
+    ol.setup {
+      counter-reset: step;
+      list-style: none;
+      padding: 0;
+      margin: 2rem 0 0;
+    }
+
+    ol.setup li {
+      counter-increment: step;
+      padding: 0 0 1.75rem 4.5rem;
+      position: relative;
+    }
+
+    ol.setup li::before {
+      content: "STEP " counter(step, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--amber);
+      font-weight: 500;
+    }
+
+    ol.setup li h3 {
+      font-family: var(--sans);
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: -0.15rem 0 0.4rem;
+      color: var(--ivory);
+    }
+
+    ol.setup li p {
+      font-size: 0.94rem;
+      line-height: 1.6;
+      color: var(--ivory-2);
+      margin: 0 0 0.5rem;
+    }
+
+    /* FAQ */
+    details.faq {
+      border-bottom: 1px dashed var(--rule);
+      padding: 1.25rem 0;
+    }
+
+    details.faq:first-of-type {
+      border-top: 1px dashed var(--rule);
+    }
+
+    details.faq summary {
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: var(--ivory);
+      list-style: none;
+      padding-right: 3rem;
+      position: relative;
+    }
+
+    details.faq summary::-webkit-details-marker { display: none; }
+
+    details.faq summary::after {
+      content: "[+]";
+      position: absolute;
+      right: 0;
+      top: 0;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--amber);
+      letter-spacing: 0.04em;
+    }
+
+    details.faq[open] summary::after { content: "[\2212]"; }
+
+    details.faq .answer {
+      padding-top: 1rem;
+    }
+
+    details.faq .answer p {
+      font-size: 0.93rem;
+      line-height: 1.6;
+      color: var(--ivory-2);
+      margin: 0 0 0.75rem;
+    }
+
+    details.faq .answer p:last-child { margin-bottom: 0; }
+
+    /* Proof block */
+    .proof-placeholder {
+      background: var(--bay);
+      border: 1px dashed var(--rule);
+      padding: 2rem 1.75rem;
+      margin: 2rem 0 0;
+      text-align: center;
+    }
+
+    .proof-placeholder .marker-line {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      color: var(--amber);
+      text-transform: uppercase;
+      margin: 0 0 0.85rem;
+    }
+
+    .proof-placeholder p {
+      color: var(--ivory-2);
+      margin: 0 0 0.6rem;
+      font-size: 0.95rem;
+    }
+
+    .proof-placeholder p:last-child { margin-bottom: 0; }
+
+    .proof-placeholder strong {
+      color: var(--ivory);
+      font-weight: 700;
+    }
+
+    /* Forward / series block */
+    .series {
+      background: var(--bay);
+      border: 1px solid var(--rule);
+      padding: 1.75rem;
+      margin: 2rem 0 0;
+    }
+
+    .series .series-row {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.65rem 0;
+      border-bottom: 1px dashed var(--rule);
+      font-size: 0.95rem;
+    }
+
+    .series .series-row:last-child { border-bottom: none; }
+
+    .series .series-row .id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--amber);
+      min-width: 4rem;
+    }
+
+    .series .series-row .name {
+      font-weight: 700;
+      color: var(--ivory);
+    }
+
+    .series .series-row .name.current {
+      color: var(--amber);
+    }
+
+    .series .series-row .desc {
+      color: var(--mute);
+      flex: 1;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px dashed var(--rule);
+      padding: 3rem 0 2rem;
+      margin-top: 3rem;
+    }
+
+    footer .footer-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    footer .attribution {
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      color: var(--ivory);
+      margin: 0 0 1.5rem;
+      font-weight: 600;
+    }
+
+    footer .attribution .amber { color: var(--amber); }
+
+    footer ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
+    }
+
+    footer ul a {
+      color: var(--ivory-2);
+      border-bottom: 1px solid var(--mute-2);
+    }
+
+    footer ul a:hover {
+      color: var(--amber);
+      border-bottom-color: var(--amber);
+    }
+
+    footer .meta {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--mute);
+      margin: 0 0 0.4rem;
+    }
+
+    footer .meta a { color: var(--ivory-2); }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .timecode-strip .dot-rec, .video-frame .placeholder .pulse { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Letterbox bars + timecode console strips -->
+<div class="letterbox-top"></div>
+<div class="timecode-strip top">
+  <div class="reel">
+    <span class="dot-rec"></span><span class="reel-label">REC </span>your-animation-worker
+  </div>
+  <nav class="console-nav">
+    <a href="#scene">SCENE</a>
+    <a href="#tracks">TRACKS</a>
+    <a href="#preview">PREVIEW</a>
+    <a href="#setup">SETUP</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/NFTYoginis/your-animation-worker" class="github">GITHUB &rarr;</a>
+  </nav>
+</div>
+
+<div class="letterbox-bottom"></div>
+<div class="timecode-strip bottom">
+  <div>00:00:00:01  &middot;  9:16  &middot;  30FPS  &middot;  H.264</div>
+  <div class="reel">REPO 03 / 03</div>
+</div>
+
+<main id="top">
+
+  <section class="hero" id="scene">
+    <p class="slate">
+      <span class="field">SLATE <span>03/03</span></span>
+      <span class="field">PROJ <span>operator-stack</span></span>
+      <span class="field">TYPE <span>voice-to-video</span></span>
+      <span class="field">CODEC <span>h.264</span></span>
+    </p>
+    <h1>A voice-to-video Claude worker.<br><span class="amber">Script &rarr; MP4.</span> Built on Remotion.</h1>
+    <p class="standfirst">Dispatched a script + visual direction, renders a short MP4. Six-section brief is the contract; Remotion + ffmpeg + your footage source do the work. MIT licensed.</p>
+    <div class="cta-row">
+      <a href="https://github.com/NFTYoginis/your-animation-worker" class="cta-primary">VIEW ON GITHUB &nbsp;&rarr;</a>
+      <a href="#setup" class="cta-secondary">Five-minute setup</a>
+    </div>
+  </section>
+
+  <section id="tracks">
+    <p class="marker"><span class="bar-icon"></span><span class="num">01</span><span>What it is</span></p>
+    <h2>Brief-driven. Voice-clone-ready. Footage-configurable.</h2>
+    <p class="lead">A working Claude worker that does one thing. You give it a brief, it reads the visual system you've defined and the footage source you've configured, and it renders an MP4 through Remotion. Fork the repo, stand up Remotion alongside, configure two reference files, dispatch your first brief.</p>
+
+    <div class="panes">
+      <div class="pane">
+        <p class="pane-label">Track 01</p>
+        <h3>Brief-driven</h3>
+        <p>Every dispatch starts with a seven-section brief at <code>briefs/&lt;date&gt;-&lt;slug&gt;.md</code>. Script, timing, visual direction, voice source — all in the brief. The worker reads it, renders, verifies, hands back the MP4 path.</p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Track 02</p>
+        <h3>Voice-clone-ready</h3>
+        <p>TTS, recorded audio, or voice-clone — your choice per brief. Voice-clone of a named third party is gated behind a consent-confirmation gate. The worker refuses without it, on purpose, every time.</p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Track 03</p>
+        <h3>Footage-configurable</h3>
+        <p>Pexels via API (key env-loaded, never committed), a local licensed footage library, or per-brief operator-supplied assets. The worker pulls from the source you configure, nowhere else.</p>
+      </div>
+    </div>
+
+    <div class="code-inset">
+      <span class="label">// A dispatch trigger looks like this</span><span class="comment"># In a fresh Claude session, after opening the repo folder:</span>
+<span class="prompt">&gt;</span> Read the brief at briefs/2026-05-14-focusblock-launch-vertical.md and execute.
+
+<span class="comment"># That's the entire dispatch. The worker handles the rest:</span>
+<span class="comment">#   1. Reads STATUS.md (first read)</span>
+<span class="comment">#   2. Reads the brief (the contract)</span>
+<span class="comment">#   3. Reads reference/visual-system.md (how the frames look)</span>
+<span class="comment">#   4. Reads reference/footage-sources.md (where the visuals come from)</span>
+<span class="comment">#   5. Runs the pre-flight checklist (6 items, grep-able)</span>
+<span class="comment">#   6. Constructs the composition props from the brief</span>
+<span class="comment">#   7. Invokes Remotion: npx remotion render ...</span>
+<span class="comment">#   8. Self-verifies against the brief's success criteria</span>
+<span class="comment">#   9. Updates STATUS.md (last write)</span>
+    </div>
+  </section>
+
+  <section id="preview">
+    <p class="marker"><span class="bar-icon"></span><span class="num">02</span><span>Worked example</span></p>
+    <h2>One brief. One thirty-second cut.</h2>
+    <p>The repo ships with one worked example. A seven-section brief asks for a 30-second vertical 9:16 voice-over MP4 for a focus-timer app called <em>FocusBlock</em>. The worker reads the brief, constructs the composition props, queries Pexels for the three footage cues, generates the TTS voice-over, invokes Remotion. Output is a 1080&times;1920 h.264 MP4 with burned-in captions, roughly 8-12MB.</p>
+
+    <!-- Vertical preview frame. Operator wires up the actual video src; placeholder shows render specs. -->
+    <div class="video-frame">
+      <span class="corner-tl"></span><span class="corner-tr"></span>
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <!-- TODO: operator — host the rendered example MP4 publicly (CDN / YouTube / etc.) and set the src below. Remove the placeholder div once wired up. -->
+      <!--
+      <video controls muted playsinline poster="example-poster.jpg">
+        <source src="https://YOUR-CDN/your-animation-worker-example.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+      -->
+      <div class="placeholder">
+        <p><span class="pulse"></span><strong>PREVIEW PENDING</strong></p>
+        <p style="margin-top: 1rem;">Render the example MP4 locally,<br>host it publicly, and wire the<br><code style="font-size: 0.78rem;">&lt;video&gt;</code> tag in <code style="font-size: 0.78rem;">docs/index.html</code>.</p>
+      </div>
+    </div>
+
+    <p class="video-frame-meta">
+      <span class="amber">30.0s</span> &middot; 9:16 1080&times;1920 &middot; h.264 / AAC 192k &middot; <span class="amber">CRF 18</span>
+    </p>
+
+    <p style="margin-top: 2rem; font-size: 0.92rem;">Full render plan — props JSON, render command, verification table — is in <a href="https://github.com/NFTYoginis/your-animation-worker/blob/main/examples.md">examples.md</a>. The paired brief is at <a href="https://github.com/NFTYoginis/your-animation-worker/blob/main/briefs/2026-05-14-example.md">briefs/2026-05-14-example.md</a>.</p>
+  </section>
+
+  <section id="why">
+    <p class="marker"><span class="bar-icon"></span><span class="num">03</span><span>Why this one</span></p>
+    <h2>Five tracks this starter holds that most don't.</h2>
+    <p>There are other Claude-worker starter kits. The differentiators below are the reasons this one exists. Each is enforced by the architecture, not by a README that hopes you'll remember.</p>
+
+    <ol class="differentiators">
+      <li>
+        <h3>ICM rigor</h3>
+        <p>The three always-relevant files — <code>CLAUDE.md</code>, <code>CONTEXT.md</code>, <code>STATUS.md</code> — plus identity, rules, examples, and reference. Not "a <code>CLAUDE.md</code> and hope." Structural, named, enforced.</p>
+      </li>
+      <li>
+        <h3>60-30-10 layer separation</h3>
+        <p>Infrastructure / Orchestration / AI, in the corrected definition. AI is the 10%; Remotion, ffmpeg, your footage source, your CDN — the other 90% — live outside Claude. Most kits make Claude the whole stack. This one keeps it in its lane.</p>
+      </li>
+      <li>
+        <h3>Brief-as-contract dispatch</h3>
+        <p>Clean role boundary between orchestrator and worker. Especially load-bearing for video: a wrong render burns Pexels quota, TTS / voice-clone API charges, and render compute. The contract closes the guessing space before the API charges start.</p>
+      </li>
+      <li>
+        <h3>Pages-ready landing</h3>
+        <p>The repo IS its own marketing surface. Push it, enable GitHub Pages from the <code>/docs</code> folder, and a public URL goes live in sixty seconds. The page you're reading now is that file.</p>
+      </li>
+      <li>
+        <h3>Tied to a real article series</h3>
+        <p>The architecture is documented in the operator-AI series, starting with "I burned 800,000 tokens on one daily routine." Read the article, then the code. The two reinforce each other.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="proof">
+    <p class="marker"><span class="bar-icon"></span><span class="num">04</span><span>In production</span></p>
+    <h2>Real-user receipts.</h2>
+    <p>This repo is a fresh release. Real-user receipts go in the block below once operators who fork it ship work with it.</p>
+
+    <div class="proof-placeholder">
+      <p class="marker-line">[ RECEIPTS PENDING ]</p>
+      <p><strong>Render counts and shipped MP4s go here.</strong></p>
+      <p>Forked this repo and shipped real video with it? Open an issue with a one-paragraph note on what you rendered and how the brief shape held up. Selected receipts will be quoted here verbatim, with consent.</p>
+      <!-- TODO: operator — replace placeholder with real receipts once forks start shipping in production. Never invent receipts. -->
+    </div>
+  </section>
+
+  <section id="setup">
+    <p class="marker"><span class="bar-icon"></span><span class="num">05</span><span>Get started</span></p>
+    <h2>Five steps from fork to first render.</h2>
+
+    <ol class="setup">
+      <li>
+        <h3>Fork the repo</h3>
+        <p>Click Fork on the <a href="https://github.com/NFTYoginis/your-animation-worker">GitHub page</a>, or clone directly: <code>git clone https://github.com/NFTYoginis/your-animation-worker.git</code></p>
+      </li>
+      <li>
+        <h3>Stand up Remotion alongside</h3>
+        <p>In a sibling folder: <code>npx create-video@latest</code>. The repo deliberately doesn't bundle Remotion — pinned dependencies rot fast. You install fresh against current versions. Also install <code>ffmpeg</code> locally (<code>brew install ffmpeg</code> on macOS).</p>
+      </li>
+      <li>
+        <h3>Configure visual-system and footage-source</h3>
+        <p>Edit <code>reference/visual-system.md</code> (palette, type, motion) and <code>reference/footage-sources.md</code> (Pexels API key in <code>.env</code>, library path, or per-brief assets). The worker refuses to render against the placeholder text — the gates are there to prevent dispatching against an unconfigured stack.</p>
+      </li>
+      <li>
+        <h3>Write your first brief</h3>
+        <p>Copy <code>briefs/_BRIEF-TEMPLATE.md</code> to <code>briefs/&lt;today&gt;-&lt;slug&gt;.md</code>. Fill the seven sections. Keep it on one screen. Read the script aloud at target duration — if your "30-second video" reads as 50 seconds, fix it in the brief, not at render time.</p>
+      </li>
+      <li>
+        <h3>Dispatch</h3>
+        <p>Paste this into a Claude session opened in the repo folder: <code>Read the brief at briefs/&lt;your-filename&gt;.md and execute.</code> The worker reads the contract, constructs the composition props, invokes Remotion, and hands back the path to the rendered MP4.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="faq">
+    <p class="marker"><span class="bar-icon"></span><span class="num">06</span><span>Questions</span></p>
+    <h2>What you'll want to know.</h2>
+
+    <details class="faq">
+      <summary>Why Remotion and not a video-editor binary or a pure ffmpeg script?</summary>
+      <div class="answer">
+        <p>Remotion lets you declare compositions in React/JSX. The brief names which composition and what props; the worker fills the props and renders. You don't generate ffmpeg flag strings from scratch every dispatch — you pick a composition. ffmpeg is still in the stack for post-render passes (aspect conversion, audio-mux for source-with-voice-over mixes, caption burn-in for soft-track MP4s) but Remotion is the primary render path. The reference file <code>reference/remotion-pipeline.md</code> documents the composition shapes and render commands.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Why doesn't the repo include a working Remotion project?</summary>
+      <div class="answer">
+        <p>Pinned dependencies rot fast. A starter that bundles <code>node_modules/</code> and a frozen <code>package.json</code> goes stale within months. The repo documents the composition shapes and the render commands; the operator stands up Remotion fresh against current versions. The setup step is roughly two minutes (<code>npx create-video@latest</code> + <code>npm install</code>), and you get a current Remotion install instead of a six-month-old one.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Why isn't the example MP4 committed to the repo?</summary>
+      <div class="answer">
+        <p>A 30-second vertical at h.264 CRF 18 runs roughly 8-15MB. A year of weekly renders would balloon a fork's <code>.git</code> directory past comfortable clone size. The repo carries render *receipts* — the props JSON, the render command, the verification table — and gitignores <code>*.mp4</code>. To see the example output, either reproduce the render locally (the receipt has everything you need) or watch the embedded video on this page once the operator wires up the <code>&lt;video&gt;</code> tag with a public URL.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>What does the worker refuse to do?</summary>
+      <div class="answer">
+        <p>Five named refusal gates in <code>rules.md</code>, each with verbatim refusal language. The big ones: empty visual-system configuration, empty footage-source configuration, missing brief preconditions, voice-clone or deepfake of a named third party without consent confirmation, and high-harm domains without explicit operator authorization. When a gate fires, the worker writes a question file at <code>briefs/questions/&lt;slug&gt;-question.md</code> and stops. It does not "do its best."</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Why seven brief sections instead of six (vs. the content sibling)?</summary>
+      <div class="answer">
+        <p>Video has visual direction as a first-class concern that prose doesn't. The animation brief separates "What to produce" (aspect, duration, format) from "Visual direction" (per-section footage cues, title-card spec, caption style) — two related but distinct contracts. Forcing them into one section either makes the section sprawl or invites the worker to guess what was meant. Seven sections is the smallest contract that closes the guessing space for video. Same principle as the content sibling's six; one section bigger because video carries one more dimension.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>How much does a render actually cost?</summary>
+      <div class="answer">
+        <p>For the worked example (30-second vertical, 3 Pexels clips, ~75 words of TTS via tts-1-hd): roughly &lt;$0.01 on OpenAI TTS, 3 requests against Pexels (well within free-tier rate limit), and 30-90 seconds of render compute on a modern laptop. Voice-clone services typically charge $0.30 per 1,000 characters generated, so the same script via voice-clone costs roughly $0.02. The brief-as-contract pattern matters here precisely because a wrong render costs all of the above twice — the contract gets you to the right render on the first dispatch.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Is this affiliated with Anthropic, Claude, or Remotion?</summary>
+      <div class="answer">
+        <p>No. This is an independent project demonstrating one way to structure a Claude-based voice-to-video worker on top of Remotion. Claude is the model the worker runs on; Remotion is the render engine; the architecture and the opinions are this repo's.</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="series">
+    <p class="marker"><span class="bar-icon"></span><span class="num">07</span><span>The series</span></p>
+    <h2>Three repos. One architecture. Different domains.</h2>
+    <p>This repo is the third in a three-repo operator-stack series, each demonstrating the same architecture in a different domain. The three pair naturally — content writes the script, design produces the title-card still, animation renders the video.</p>
+
+    <div class="series">
+      <div class="series-row">
+        <span class="id">REPO 01</span>
+        <span class="name"><a href="https://github.com/NFTYoginis/your-content-worker">your-content-worker</a></span>
+        <span class="desc">Prose. Brief in, post / article / caption out.</span>
+      </div>
+      <div class="series-row">
+        <span class="id">REPO 02</span>
+        <span class="name"><a href="https://github.com/NFTYoginis/your-design-worker">your-design-worker</a></span>
+        <span class="desc">Visual assets. Brief in, images / HTML previews out.</span>
+      </div>
+      <div class="series-row">
+        <span class="id">REPO 03</span>
+        <span class="name current">your-animation-worker &larr; this one</span>
+        <span class="desc">Voice-to-video. Brief in, MP4 out, via Remotion.</span>
+      </div>
+    </div>
+
+    <p style="margin-top: 1.75rem;">The architecture is documented in Article 1 of the operator-AI series: <em>I burned 800,000 tokens on one daily routine. Here's the architecture that killed it.</em> Read the article for the receipts and the four mistakes that produced the number; read this repo for the code that runs the fix.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <p class="attribution">By Gabe <span class="amber">&mdash;</span> Your AI Specialist</p>
+    <ul>
+      <li><a href="https://github.com/NFTYoginis/your-animation-worker">GITHUB REPO</a></li>
+      <li><a href="https://github.com/NFTYoginis/your-animation-worker/issues">OPEN AN ISSUE</a></li>
+      <li><a href="https://github.com/NFTYoginis/your-animation-worker/blob/main/LICENSE">MIT LICENSE</a></li>
+    </ul>
+    <p class="meta">MIT licensed. Fork it, edit it, render it.</p>
+    <p class="meta">Article 1 of the operator-AI series link will be published here once the Medium URL is live.</p>
+    <p class="meta">Last updated: 2026-05-14.</p>
+  </div>
+</footer>
+
+</body>
+</html>

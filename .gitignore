@@ -1,0 +1,28 @@
+.DS_Store
+node_modules/
+*.log
+.claude/local/
+.env
+.env.local
+*.swp
+.idea/
+.vscode/
+
+# Render artifacts — kept local, not committed.
+# MP4s are too large for repo hygiene; render and host on operator's CDN / S3 / etc.
+output/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+*.aac
+
+# Remotion build artifacts
+out/
+build/
+.remotion/
+
+# Pexels / footage caches the operator may build up locally
+footage-cache/
+voice-cache/
