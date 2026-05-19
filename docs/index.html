@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>your-animation-worker — a voice-to-video Claude worker, ICM-structured, fork-ready</title>
-  <meta name="description" content="An open-source voice-to-video worker built on Remotion. Script in, MP4 out. Brief-driven, footage-configurable, dispatch-ready. MIT licensed. Fork it and put it to work.">
+  <meta name="description" content="An open-source voice-to-video worker built on Remotion. Reads markdown briefs. Supports TTS, recorded audio, or voice-clone APIs. Sources footage from Pexels, local library, or per-brief uploads. MIT licensed. Fork it and put it to work.">
 
   <meta property="og:title" content="your-animation-worker">
   <meta property="og:description" content="A voice-to-video Claude worker, ICM-structured, fork-ready.">
@@ -839,7 +839,7 @@
 
   <section id="tracks">
     <p class="marker"><span class="bar-icon"></span><span class="num">01</span><span>What it is</span></p>
-    <h2>Brief-driven. Voice-clone-ready. Footage-configurable.</h2>
+    <h2>Accepts a brief. Renders an MP4 through Remotion.</h2>
     <p class="lead">A working Claude worker that does one thing. You give it a brief, it reads the visual system you've defined and the footage source you've configured, and it renders an MP4 through Remotion. Fork the repo, stand up Remotion alongside, configure two reference files, dispatch your first brief.</p>
 
     <div class="panes">
@@ -917,7 +917,7 @@
         <p>The three always-relevant files — <code>CLAUDE.md</code>, <code>CONTEXT.md</code>, <code>STATUS.md</code> — plus identity, rules, examples, and reference. Not "a <code>CLAUDE.md</code> and hope." Structural, named, enforced.</p>
       </li>
       <li>
-        <h3>60-30-10 layer separation</h3>
+        <h3>~90% of work lives outside Claude</h3>
         <p>Infrastructure / Orchestration / AI, in the corrected definition. AI is the 10%; Remotion, ffmpeg, your footage source, your CDN — the other 90% — live outside Claude. Most kits make Claude the whole stack. This one keeps it in its lane.</p>
       </li>
       <li>
@@ -925,8 +925,8 @@
         <p>Clean role boundary between orchestrator and worker. Especially load-bearing for video: a wrong render burns Pexels quota, TTS / voice-clone API charges, and render compute. The contract closes the guessing space before the API charges start.</p>
       </li>
       <li>
-        <h3>Pages-ready landing</h3>
-        <p>The repo IS its own marketing surface. Push it, enable GitHub Pages from the <code>/docs</code> folder, and a public URL goes live in sixty seconds. The page you're reading now is that file.</p>
+        <h3>Self-contained Pages landing</h3>
+        <p>The repo ships its own landing surface: inline CSS, no external font/CDN fetches, deployable via GitHub Pages from the <code>/docs</code> folder in sixty seconds after push. The page you're reading now is that file.</p>
       </li>
       <li>
         <h3>Tied to a real article series</h3>
