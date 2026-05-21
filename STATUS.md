@@ -18,8 +18,8 @@ _(none — anything stalled on you or someone else, with the reason in one line)
 
 ## Recently shipped
 
-_(none — append one line per completed render. Newest first. Keep the last 5; archive the rest.)_
+- SHIPPED 2026-05-21 — `examples/script-to-screen-demo.{mp4,png}` + paired brief: 6.0s 9:16 silent kinetic-typography proof-of-output (voice→timed-caption→video), domain-agnostic, rendered offline.
 
 ---
 
-Last updated: YYYY-MM-DD
+Last updated: 2026-05-21

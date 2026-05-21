@@ -10,8 +10,10 @@ node_modules/
 
 # Render artifacts — kept local, not committed.
 # MP4s are too large for repo hygiene; render and host on operator's CDN / S3 / etc.
+# Exception: a single small proof-of-output demo under examples/ is committed (see examples/README.md).
 output/
 *.mp4
+!examples/*.mp4
 *.mov
 *.webm
 *.wav
